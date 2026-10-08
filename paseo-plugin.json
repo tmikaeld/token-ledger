@@ -3,5 +3,6 @@
   "description": "Per-turn token usage, cache counts, and cost tracking with a persistent local ledger.",
   "requirements": {
     "paseo": ">=0.9.1"
-  }
+  },
+  "build": [["npm", "ci", "--omit=dev", "--ignore-scripts"]]
 }
