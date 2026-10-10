@@ -30,7 +30,7 @@ Per-turn LLM token usage and cost for [Paseo](https://paseo.sh) agents — an ag
   <img src="images/screenshot-pill.jpg" alt="TokenLedger composer pill showing cost and context usage next to the composer; pressing it opens the panel" width="560">
 </p>
 
-**Overview** (sidebar → TokenLedger) — all sessions in one place: grand totals, then per-agent rows grouped by workspace with live-turn indicator, last activity, cost/tokens, and turn count. Tapping a row jumps to that agent.
+**Overview** (sidebar → TokenLedger) — combined usage across connected servers running this plugin version. Set one inclusive subscription start/end window, group usage by day, month or year, and filter by model. Totals, time bars, model totals and server coverage replace the conversation list. Calendar boundaries use the viewing client's time zone consistently on every server. Unavailable servers are shown and excluded from totals. See [Overview reporting](docs/overview.md).
 
 **Timeline** — each newly finished turn gets one passive usage summary after its ledger record is saved. It uses the same normalized counts, cost source and quality marks as the panel. No polling or message replacement is involved.
 
@@ -79,8 +79,9 @@ Open **Settings → Plugins → token-ledger → TokenLedger** on the selected h
 - **OpenRouter reference prices** controls both cached reference prices and background catalog refresh.
 - **Built-in fallback prices** controls estimates when neither custom nor enabled OpenRouter pricing matches.
 - **Refresh frequency** selects normal (3 seconds active / 30 seconds idle) or relaxed (10 / 60 seconds) fallback polling. Live updates still trigger refreshes.
+- **Subscription window** sets inclusive start/end dates in `YYYY-MM-DD` format for the Overview. Blank dates are open boundaries. The selected host saves the window, and the Overview applies that same window to every included server. It can also be edited with **Subscription dates** in the Overview.
 
-Settings apply without a plugin reload and are shared by clients of that host. Reported costs and `pricing.json` overrides always retain priority. These preferences do not alter ledger retention or erase history.
+Settings apply without a plugin reload and are shared by clients of that host. Reported costs and `pricing.json` overrides always retain priority. Changing reporting dates filters the view and preserves history.
 
 All three switches default to on, and refresh frequency defaults to normal.
 
@@ -141,8 +142,8 @@ Built-in Claude rates were checked against [Anthropic's pricing table](https://p
 - `tracker-state.json` is a separate atomic checkpoint containing open-turn observations and pending ledger writes. Stable IDs make recovery appends idempotent.
 - Timeline summaries are a view of newly settled turns, not the authoritative history: Paseo keeps plugin timeline entries in daemon memory. No old entries are backfilled on restart, because appending would place them at the end and change activity ordering.
 - Stored locally as JSON Lines at `~/.paseo/plugins/token-ledger/ledger.jsonl` (respects `PASEO_HOME`).
-- Retention: the most recent 2,000 turns; older records are trimmed with an atomic rewrite.
-- When OpenRouter reference prices are enabled, the plugin reads the public model-price catalog and caches it for 24 hours. No usage data is sent. History does not sync between machines.
+- History is retained without a turn-count limit for monthly and yearly reporting. Records trimmed by older versions cannot be recovered; the Overview shows each server's earliest available record.
+- When OpenRouter reference prices are enabled, the plugin reads the public model-price catalog and caches it for 24 hours. No usage data is sent to it. The Overview combines aggregates over each server's existing authenticated Paseo connection; ledger files stay on their servers.
 
 ## Limitations
 

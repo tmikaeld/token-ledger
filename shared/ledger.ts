@@ -1,5 +1,6 @@
 import { defineRpc } from "@getpaseo/plugin";
 import { z } from "zod";
+import { OverviewQuerySchema } from './reporting.ts';
 
 export const TurnRecordSchema = z.object({
   v: z.literal(1),
@@ -124,36 +125,25 @@ export const ledgerSync = defineRpc({
   output: SyncOutputSchema,
 });
 
-export const AgentUsageRowSchema = z.object({
-  agentId: z.string(),
-  /** Agent metadata as last reported by the daemon; null when the agent is gone. */
-  title: z.string().nullable(),
-  provider: z.string().nullable(),
-  model: z.string().nullable(),
-  status: z.string().nullable(),
-  /** True while a turn is in flight. */
-  active: z.boolean(),
-  lastActivityAt: z.string().nullable(),
-  summary: SummarySchema,
-});
-export type AgentUsageRow = z.infer<typeof AgentUsageRowSchema>;
-
-export const OverviewGroupSchema = z.object({
-  workspaceId: z.string().nullable(),
-  workspaceName: z.string().nullable(),
-  agents: z.array(AgentUsageRowSchema),
-});
-export type OverviewGroup = z.infer<typeof OverviewGroupSchema>;
-
-const OverviewOutputSchema = z.object({
-  groups: z.array(OverviewGroupSchema),
+export const UsagePeriodSchema = z.object({ period: z.string(), summary: SummarySchema });
+export const ModelUsageSchema = z.object({ model: z.string().nullable(), summary: SummarySchema });
+export const OverviewOutputSchema = z.object({
+  server: z.object({ id: z.string(), label: z.string() }),
   totals: SummarySchema,
+  periods: z.array(UsagePeriodSchema),
+  models: z.array(ModelUsageSchema),
+  availableModels: z.array(z.string().nullable()),
+  activeTurns: z.number().int().nonnegative(),
+  firstRecordedAt: z.string().nullable(),
+  lastRecordedAt: z.string().nullable(),
+  partialTurns: z.number().int().nonnegative(),
+  gapTurns: z.number().int().nonnegative(),
 });
 export type OverviewResult = z.infer<typeof OverviewOutputSchema>;
 
 export const ledgerOverview = defineRpc({
   name: "ledger.overview",
-  input: z.object({}),
+  input: OverviewQuerySchema,
   output: OverviewOutputSchema,
 });
 

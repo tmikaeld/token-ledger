@@ -1,12 +1,10 @@
-import { appendFile, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { TurnRecordSchema, type TurnRecord } from "../shared/ledger.ts";
 
 const DATA_DIR = join(process.env.PASEO_HOME ?? join(homedir(), ".paseo"), "plugins", "token-ledger");
 const DATA_FILE = join(DATA_DIR, "ledger.jsonl");
-const MAX_RECORDS = 2000;
-const TRIM_THRESHOLD = 2200;
 
 let records: TurnRecord[] = [];
 let loadPromise: Promise<void> | null = null;
@@ -53,13 +51,6 @@ export function appendRecord(record: TurnRecord): Promise<void> {
     records.push(record);
     ids.add(record.id);
     revision++;
-    if (records.length > TRIM_THRESHOLD) {
-      const retained = records.slice(-MAX_RECORDS);
-      const tmp = `${DATA_FILE}.tmp`;
-      await writeFile(tmp, `${retained.map((r) => JSON.stringify(r)).join("\n")}\n`, "utf8");
-      await rename(tmp, DATA_FILE);
-      records = retained;
-    }
   });
   // Keep the queue usable after a failed write; the caller still sees failure.
   writeQueue = write.catch(() => undefined);

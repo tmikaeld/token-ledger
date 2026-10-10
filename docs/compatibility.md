@@ -20,7 +20,7 @@ ceiling.
   shipped code are type-only, and Paseo supplies the plugin runtime and
   `PaseoApi`. Updating the host does not require updating these pins in lockstep.
 - **Ongoing checks:** CI runs the typecheck and existing tests against 0.9.1,
-  0.10.2, and npm `latest`, on pushes, PRs, manual runs, and weekly. These checks
+  0.10.2, 0.11.1, and npm `latest`, on pushes, PRs, manual runs, and weekly. These checks
   detect type and SDK regressions; real provider turns remain necessary to
   verify token/cost semantics and host behavior. CI failures do not silently
   rewrite the compatibility range or disable installed plugins.
@@ -36,6 +36,7 @@ not exclude beta builds.
 | --- | --- | --- |
 | 0.9.1 | Original host validation on 2026-09-23; baseline typecheck and 65 tests rerun on 2026-09-30 | Supported minimum; see [v0.6.0 verification](releases/v0.6.0.md) |
 | 0.10.2 | Installed desktop/daemon, published SDK, typecheck, 65 tests, plugin reload, real Claude/Codex turns on 2026-09-30 | Compatible with existing implementation after removing the manifest ceiling |
+| 0.11.1 | Overview feature validation on 2026-10-10: two isolated daemon installs/reloads, generated client bundles, real plugin RPCs with synthetic ledgers, subscription settings, date/model filters, duplicate connection and unload cleanup | Overview runtime checks passed; interactive desktop/mobile walkthrough and new real provider turns were not performed |
 
 The 0.10.2 investigation found:
 

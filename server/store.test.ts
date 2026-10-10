@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { finalizeTurn } from '../shared/aggregate.ts';
 
-test('concurrent appends and retention preserve disk/memory order and legacy v1 records', async () => {
+test('concurrent appends preserve complete reporting history, disk/memory order and legacy v1 records', async () => {
   const home = await mkdtemp(join(tmpdir(), 'token-ledger-store-test-'));
   const previousHome = process.env.PASEO_HOME;
   process.env.PASEO_HOME = home;
@@ -20,7 +20,8 @@ test('concurrent appends and retention preserve disk/memory order and legacy v1 
     await store.appendRecord(records.at(-1)!);
     await store.flushStore();
     const persisted = (await readFile(store.dataFilePath(), 'utf8')).trim().split('\n').map(line => JSON.parse(line));
-    assert.equal(persisted.length, 2002);
+    assert.equal(persisted.length, 2203, 'history is retained beyond the former trimming threshold');
+    assert.equal(persisted[0].input, 0);
     assert.deepEqual(persisted, store.allRecords());
     assert.equal(persisted.at(-1).input, 2202);
     assert.equal(new Set(persisted.map(r => r.id)).size, persisted.length);

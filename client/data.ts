@@ -1,9 +1,11 @@
 import { usePaseo, useRpc, useSettings } from '@getpaseo/plugin/client';
 import type { PaseoApi } from '@getpaseo/client';
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
-import { ledgerSync, ledgerOverview, type SyncResult } from '../shared/ledger.ts';
+import { useEffect, useSyncExternalStore } from 'react';
+import { ledgerSync, type SyncResult } from '../shared/ledger.ts';
 import { preferences, refreshIntervalMs } from '../shared/preferences.ts';
+import type { OverviewQuery } from '../shared/reporting.ts';
+import { overviewSources } from './overview-sources.ts';
 
 const coordinators = new WeakMap<QueryClient, Map<PaseoApi, { count: number; dispose: () => void }>>();
 
@@ -66,14 +68,17 @@ export function useLedger(agentId: string) {
   });
 }
 
-export function useOverview() {
+export function useOverview(input: OverviewQuery, enabled: boolean) {
   const settings = useSettings(preferences);
-  const overview = useRpc(ledgerOverview);
-  useRefresh(settings.status === 'ready' ? `${settings.values.openRouterPricing}:${settings.values.builtinPricing}` : null);
+  const cache = useQueryClient();
+  const revision = useSyncExternalStore(overviewSources.subscribe, overviewSources.snapshot, overviewSources.snapshot);
+  const pricingKey = settings.status === 'ready' ? `${settings.values.openRouterPricing}:${settings.values.builtinPricing}` : null;
+  useEffect(() => { void cache.invalidateQueries({ queryKey: ['token-ledger', 'overview'] }); }, [cache, revision, pricingKey]);
   return useQuery({
-    queryKey: ['token-ledger', 'overview'],
-    queryFn: () => overview({}),
+    queryKey: ['token-ledger', 'overview', input],
+    queryFn: () => overviewSources.query(input),
+    enabled,
     staleTime: 1000,
-    refetchInterval: (query) => refreshIntervalMs(settings.status === 'ready' ? settings.values.refreshInterval : 'normal', !!query.state.data?.groups.some((g) => g.agents.some((a) => a.active))),
+    refetchInterval: (query) => refreshIntervalMs(settings.status === 'ready' ? settings.values.refreshInterval : 'normal', !!query.state.data?.activeTurns),
   });
 }

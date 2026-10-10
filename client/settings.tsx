@@ -2,6 +2,7 @@ import { useSettings, type PluginSurfaceProps } from '@getpaseo/plugin/client';
 import { SettingsAction, SettingsCard, SettingsRow, SettingsSection, SettingsSelect, SettingsSwitch } from '@getpaseo/plugin/client/ui';
 import { Text, View } from 'react-native';
 import { preferences, type Preferences } from '../shared/preferences.ts';
+import { ReportingWindow } from './reporting-window.tsx';
 
 export function TokenLedgerSettings({ theme }: PluginSurfaceProps) {
   const settings = useSettings(preferences);
@@ -21,6 +22,7 @@ export function TokenLedgerSettings({ theme }: PluginSurfaceProps) {
   );
   return (
     <View style={{ gap: 24 }}>
+      <ReportingWindow values={settings.values} saving={settings.saving} onSave={save} />
       <SettingsSection title="Display">
         <SettingsCard>
           <SettingsSwitch label="Timeline summaries" hint="Add a usage summary after each newly finished turn. Changes apply to future summaries." value={settings.values.timelineSummaries} disabled={settings.saving} onValueChange={(timelineSummaries) => save({ timelineSummaries })} />

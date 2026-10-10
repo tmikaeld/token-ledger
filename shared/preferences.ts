@@ -1,5 +1,6 @@
 import { defineSettings } from '@getpaseo/plugin';
 import { z } from 'zod';
+import { ReportingWindowSchema } from './reporting.ts';
 
 export const preferences = defineSettings({
   id: 'preferences', scope: 'host', version: 1,
@@ -8,6 +9,10 @@ export const preferences = defineSettings({
     openRouterPricing: z.boolean().default(true),
     builtinPricing: z.boolean().default(true),
     refreshInterval: z.enum(['normal', 'relaxed']).default('normal'),
+    ...ReportingWindowSchema.shape,
+  }).refine((value) => !value.subscriptionStartDate || !value.subscriptionEndDate
+    || value.subscriptionStartDate <= value.subscriptionEndDate, {
+    message: 'End date must be on or after start date', path: ['subscriptionEndDate'],
   }),
 });
 export type Preferences = z.infer<typeof preferences.schema>;

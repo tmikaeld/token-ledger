@@ -7,6 +7,7 @@ import { createPanelPlacement } from "./client/layout.ts";
 import { UsageTimelineRow } from "./client/timeline.tsx";
 import { UsageTimelineSchema, USAGE_TIMELINE_KIND } from "./shared/timeline.ts";
 import { TokenLedgerSettings } from './client/settings.tsx';
+import { contributeOverviewSource } from './client/overview-sources.ts';
 
 export default function contribute(client: PluginClientContext) {
   const placement = createPanelPlacement();
@@ -47,5 +48,7 @@ export default function contribute(client: PluginClientContext) {
       openSurface("ledger-overview");
     },
   });
-  return contributePills(client, placement);
+  const stopPills = contributePills(client, placement);
+  const stopOverview = contributeOverviewSource(client);
+  return async () => { stopOverview(); await stopPills(); };
 }

@@ -4,7 +4,7 @@ import type { PluginLifecycleEvents } from "@getpaseo/plugin/server";
 import { subscribeAgents } from "../shared/agents.ts";
 import type { CatalogSubscription } from '../shared/catalog-subscription.ts';
 import type { PaseoAgent, PaseoAgentTimelineEvent, PaseoApi } from "@getpaseo/client";
-import type { AgentUsageRow, InFlight, OverviewResult, Summary, SyncResult, TurnRecord } from "../shared/ledger.ts";
+import type { InFlight, OverviewResult, SyncResult, TurnRecord } from "../shared/ledger.ts";
 import { freshInput, usageSemantics, providerSemantics } from "../shared/semantics.ts";
 import { ensurePricing, estimateUsageCost } from "./pricing.ts";
 import {
@@ -15,7 +15,9 @@ import {
   loadStore,
 } from "./store.ts";
 
-import { readModel, EMPTY_SUMMARY } from "./read-model.ts";
+import { readModel, readOverview, EMPTY_SUMMARY } from "./read-model.ts";
+import { OverviewQuerySchema, type OverviewQuery } from "../shared/reporting.ts";
+import { serverIdentity } from "./identity.ts";
 import { Catalog } from "./catalog.ts";
 import { TimelinePublisher } from "./timeline.ts";
 import { TimelineSubscriptions } from './subscriptions.ts';
@@ -314,75 +316,17 @@ export async function handleSync(
   };
 }
 
-export async function handleOverview(_input: object, context: { paseo: PaseoApi }): Promise<OverviewResult> {
+export async function handleOverview(input: Partial<OverviewQuery>, context: { paseo: PaseoApi }): Promise<OverviewResult> {
+  const query = OverviewQuerySchema.parse(input);
   await ensureTracker(context.paseo);
   await ensurePricing();
   await persistence;
   await flushStore();
-  const byAgent = readModel().groups;
-  await catalog.ensureWorkspaces(context.paseo);
-  const snapshots = catalog.agents;
-  const workspaceNames = catalog.workspaceNames;
-
-  // Every agent with recorded usage, plus live agents the daemon knows about.
-  const agentIds = new Set<string>([...byAgent.keys(), ...snapshots.keys()]);
-  const rows = new Map<string | null, AgentUsageRow[]>();
-  const totals: Summary = { ...EMPTY_SUMMARY };
-  for (const agentId of agentIds) {
-    const stored = byAgent.get(agentId);
-    const snapshot = snapshots.get(agentId) ?? null;
-    const state = agents.get(agentId);
-    const open = state?.open ?? null;
-    const summary = stored?.summary ?? { ...EMPTY_SUMMARY };
-    totals.turns += summary.turns;
-    totals.input += summary.input;
-    totals.cached += summary.cached;
-    if (summary.cacheWrite != null) totals.cacheWrite = (totals.cacheWrite ?? 0) + summary.cacheWrite;
-    totals.output += summary.output;
-    if (summary.costUsd !== null) totals.costUsd = (totals.costUsd ?? 0) + summary.costUsd;
-    if (summary.effectiveCostUsd !== null) totals.effectiveCostUsd = (totals.effectiveCostUsd ?? 0) + summary.effectiveCostUsd;
-    totals.estimatedTurns += summary.estimatedTurns;
-    totals.unpricedTurns += summary.unpricedTurns;
-    const row: AgentUsageRow = {
-      agentId,
-      title: snapshot?.title ?? null,
-      provider: snapshot?.provider ?? state?.provider ?? null,
-      model: snapshot?.model ?? state?.model ?? null,
-      status: snapshot?.status ?? null,
-      active: open !== null,
-      lastActivityAt: open?.startedAt ?? stored?.lastEndedAt ?? snapshot?.updatedAt ?? null,
-      summary,
-    };
-    const workspaceId = snapshot?.workspaceId ?? null;
-    const group = rows.get(workspaceId);
-    if (group) group.push(row);
-    else rows.set(workspaceId, [row]);
-  }
-  if (totals.costUsd !== null) totals.costUsd = Number(totals.costUsd.toFixed(6));
-  if (totals.effectiveCostUsd !== null) totals.effectiveCostUsd = Number(totals.effectiveCostUsd.toFixed(6));
-
-  const byLatestActivity = (a: AgentUsageRow, b: AgentUsageRow) =>
-    (b.lastActivityAt ?? "").localeCompare(a.lastActivityAt ?? "");
-  const groups = [...rows.entries()]
-    .map(([workspaceId, groupAgents]) => ({
-      workspaceId,
-      workspaceName: workspaceId ? (workspaceNames.get(workspaceId) ?? null) : null,
-      // The overview is a monitoring entry point: live sessions always lead,
-      // followed by the most recently active history within the workspace.
-      agents: groupAgents.sort((a, b) => Number(b.active) - Number(a.active) || byLatestActivity(a, b)),
-    }))
-    .sort((a, b) => {
-      const aActive = a.agents.some((agent) => agent.active);
-      const bActive = b.agents.some((agent) => agent.active);
-      if (aActive !== bActive) return Number(bActive) - Number(aActive);
-      // "Other sessions" participates by activity just like named workspaces.
-      // A deterministic name/id fallback prevents equal timestamps from jumping.
-      return byLatestActivity(a.agents[0]!, b.agents[0]!)
-        || (a.workspaceName ?? a.workspaceId ?? "Other sessions")
-          .localeCompare(b.workspaceName ?? b.workspaceId ?? "Other sessions");
-    });
-
-  return { groups, totals };
+  return {
+    ...readOverview(query),
+    server: await serverIdentity(),
+    activeTurns: [...agents.values()].filter((state) => state.open !== null).length,
+  };
 }
 
 export async function handleEnsure(_input: object, context: { paseo: PaseoApi }): Promise<{ tracking: boolean }> {
