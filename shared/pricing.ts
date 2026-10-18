@@ -32,7 +32,17 @@ const PRICING_TABLE: Array<[RegExp, ModelPricing]> = [
   [/^claude-haiku-3-5$/, { input: 0.8, cacheRead: 0.08, output: 4 }],
 ];
 
+const MAX_CANONICAL_CACHE_ENTRIES = 10_000;
+const canonicalCache = new Map<string, string>();
 export function canonicalModel(value: string): string {
+  const hit = canonicalCache.get(value);
+  if (hit !== undefined) return hit;
+  if (canonicalCache.size >= MAX_CANONICAL_CACHE_ENTRIES) canonicalCache.clear();
+  const result = canonicalModelUncached(value);
+  canonicalCache.set(value, result);
+  return result;
+}
+function canonicalModelUncached(value: string): string {
   let model = value.trim().toLowerCase();
   if (model.startsWith('[')) {
     try {

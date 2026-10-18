@@ -1,6 +1,23 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { cacheRatio, costBreakdown, costBreakdownWithPricing, modelPricing } from "./pricing.ts";
+import { cacheRatio, canonicalModel, costBreakdown, costBreakdownWithPricing, modelPricing } from "./pricing.ts";
+
+test('canonical model memoization preserves aliases, empty results and suffixes after cache turnover', () => {
+  const cases = [
+    [' Anthropic/CLAUDE.OPUS_5.5[1m] ', 'claude-opus-5-5'],
+    ['["provider", "CLAUDE.OPUS_5.5"]', 'claude-opus-5-5'],
+    ['openai/gpt-6-astra-fast', 'gpt-6-astra-fast'],
+    ['vendor/model--name.v1_2', 'model-name-v1-2'],
+    ['[invalid-json', '[invalid-json'],
+    ['provider/', ''],
+    ['', ''],
+  ] as const;
+  for (let pass = 0; pass < 2; pass++) {
+    for (const [input, expected] of cases) assert.equal(canonicalModel(input), expected);
+  }
+  for (let i = 0; i < 10_010; i++) canonicalModel(`cache-turnover/model-${i}`);
+  for (const [input, expected] of cases) assert.equal(canonicalModel(input), expected);
+});
 
 test("model matching covers known families and rejects unknown", () => {
   assert.deepEqual(modelPricing("claude-opus-5"), { input: 5, cacheRead: 0.5, output: 25 });

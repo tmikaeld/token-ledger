@@ -47,6 +47,8 @@ test('pricing serves local rates during network refresh, prices each request, an
     assert.equal(pricing.PriceFileSchema.safeParse({ ...prices, prices: [{ model: 'bad', tiers: [] }] }).success, false);
     assert.equal(pricing.PriceFileSchema.safeParse({ ...prices, prices: [{ model: 'bad', tiers: [{ input: 1, cacheRead: 0, cacheWrite: -1, output: 2 }] }] }).success, false);
     const before = pricing.pricingRevision();
+    assert.equal(pricing.estimateUsageCost({ ...record, model: 'remote' }).effectiveCostUsd, null,
+      'the empty catalog is indexed before the first fetch completes');
     resolveFetch(new Response(JSON.stringify({ data: [{ id: 'remote', pricing: { prompt: '0.001', completion: '0.002', input_cache_read: '0.0001', input_cache_write: '0.003' } }] })));
     for (let i = 0; pricing.pricingRevision() === before && i < 100; i++) await new Promise((r) => setTimeout(r, 5));
     assert.notEqual(pricing.pricingRevision(), before);
@@ -59,6 +61,9 @@ test('pricing serves local rates during network refresh, prices each request, an
     resolveFetch(new Response(JSON.stringify({ data: [{ id: 'remote', pricing: { prompt: '0.002', completion: '0.003' } }] })));
     for (let i = 0; pricing.pricingRevision() === refreshed && i < 100; i++) await new Promise((r) => setTimeout(r, 5));
     assert.notEqual(pricing.pricingRevision(), refreshed);
+    const repriced = pricing.estimateUsageCost({ provider: 'codex', model: 'remote', ...request });
+    assert.ok(Math.abs(repriced.effectiveCostUsd! - 0.2) < 1e-12, 'refreshed catalog rates replace the previous index');
+    assert.equal(repriced.costBreakdown?.cacheWriteUsd, 0.06);
   } finally {
     globalThis.fetch = originalFetch; Date.now = originalNow;
     if (previousHome === undefined) delete process.env.PASEO_HOME; else process.env.PASEO_HOME = previousHome;

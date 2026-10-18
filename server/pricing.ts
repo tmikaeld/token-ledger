@@ -262,9 +262,22 @@ export async function ensurePricing(): Promise<void> {
   refreshPrices();
 }
 
+let openRouterIndexFor: OpenRouterPrice[] | null = null;
+let openRouterIndex = new Map<string, OpenRouterPrice[]>();
 function lookupOpenRouter(model: string): ModelPricing | null {
-  const canonical = canonicalModel(model);
-  const matches = openRouterPrices.filter((price) => canonicalModel(price.id) === canonical);
+  // Cache loads and successful refreshes replace the catalog array. Retain all
+  // matches so ambiguous aliases remain unpriced, just as with the old scan.
+  if (openRouterIndexFor !== openRouterPrices) {
+    openRouterIndex = new Map();
+    for (const price of openRouterPrices) {
+      const key = canonicalModel(price.id);
+      const list = openRouterIndex.get(key) ?? [];
+      list.push(price);
+      openRouterIndex.set(key, list);
+    }
+    openRouterIndexFor = openRouterPrices;
+  }
+  const matches = openRouterIndex.get(canonicalModel(model)) ?? [];
   if (matches.length !== 1) return null;
   const price = matches[0];
   return { input: price.prompt, cacheRead: price.cacheRead, cacheWrite: price.cacheWrite, output: price.completion };
